@@ -1,23 +1,17 @@
-import express from 'express';
-import cors from 'cors';
+import 'reflect-metadata'; // Deve ser o primeiro import
 import dotenv from 'dotenv';
+import { app } from './app'; // Importa a instância configurada do app
+import logger from './config/logger';
 
-// Carrega as variáveis de ambiente
-dotenv.config();
-
-const app = express();
-
-// Middlewares
-app.use(cors());
-app.use(express.json());
-
-// Rota de healthcheck
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
+// Carrega as variáveis de ambiente PRIMEIRO
+dotenv.config(); 
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-}); 
+// Only start the server if this script is run directly
+if (require.main === module) {
+  app.listen(PORT, () => {
+    logger.info(`🚀 Servidor rodando na porta ${PORT}`);
+    logger.info(`📄 Documentação disponível em http://localhost:${PORT}/docs`);
+  });
+} 
