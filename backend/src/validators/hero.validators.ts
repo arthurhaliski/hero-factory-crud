@@ -1,11 +1,9 @@
 import { z } from 'zod';
 
-// Schema para validação do ID (UUID)
 export const heroParamsSchema = z.object({
   id: z.string().uuid({ message: 'URL parameter \'id\' must be a valid UUID.' }),
 });
 
-// Schema para validação da query string de listagem
 export const listHeroesQuerySchema = z.object({
   page: z.coerce
     .number({ invalid_type_error: 'Query parameter \'page\' must be a number.' })
@@ -23,7 +21,6 @@ export const listHeroesQuerySchema = z.object({
   search: z.string().optional(),
 });
 
-// Schema base para os dados do herói
 const heroBaseSchema = z.object({
   name: z.string().min(3, { message: 'Field \'name\' must be at least 3 characters long.' }),
   nickname: z.string().min(3, { message: 'Field \'nickname\' must be at least 3 characters long.' }),
@@ -41,23 +38,19 @@ const heroBaseSchema = z.object({
     .or(z.literal('')),
 });
 
-// Schema para criação (todos os campos obrigatórios exceto avatarUrl)
 export const createHeroSchema = z.object({
   body: heroBaseSchema
 });
 
-// Schema para atualização (todos os campos opcionais)
 export const updateHeroSchema = z.object({
   params: heroParamsSchema,
-  body: heroBaseSchema.partial(), // .partial() torna todos os campos do body opcionais
+  body: heroBaseSchema.partial(),
 });
 
-// Schema para GET/DELETE/PATCH por ID (só valida params)
 export const getHeroSchema = z.object({
   params: heroParamsSchema,
 });
 
-// Schema para listar (só valida query)
 export const listHeroesSchema = z.object({
   query: listHeroesQuerySchema,
 }); 

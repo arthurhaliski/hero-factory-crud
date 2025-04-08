@@ -7,8 +7,9 @@ Esta é a API backend para a aplicação "Hero Factory", responsável por gerenc
 - [Pré-requisitos](#pré-requisitos)
 - [Configuração do Ambiente](#configuração-do-ambiente)
 - [Setup do Banco de Dados (Docker)](#setup-do-banco-de-dados-docker)
-- [Instalação](#instalação)
-- [Migrações do Banco de Dados](#migrações-do-banco-de-dados)
+- [Instalação e Configuração Inicial](#instalação-e-configuração-inicial)
+- [Seed do Banco de Dados](#seed-do-banco-de-dados)
+- [Migrações do Banco de Dados (Avançado)](#migrações-do-banco-de-dados-avançado)
 - [Rodando a Aplicação](#rodando-a-aplicação)
   - [Modo de Desenvolvimento](#modo-de-desenvolvimento)
   - [Modo de Produção](#modo-de-produção)
@@ -39,6 +40,11 @@ Esta é a API backend para a aplicação "Hero Factory", responsável por gerenc
     # Configurações do Banco de Dados
     # URL de conexão principal (deve corresponder ao docker-compose.yml)
     DATABASE_URL="mysql://hero_user:hero_password@localhost:3306/hero_factory"
+    
+    # URL de conexão do banco de dados de teste (IMPORTANTE para evitar perda de dados!)
+    # Os testes APENAS usarão este banco, nunca o banco de dados principal
+    DATABASE_URL_TEST="mysql://hero_user:hero_password@localhost:3306/hero_factory_test"
+    
     # URL de conexão para o Shadow Database (usado pelo Prisma Migrate)
     SHADOW_DATABASE_URL="mysql://hero_user:hero_password@localhost:3306/hero_factory_shadow"
 
@@ -47,6 +53,7 @@ Esta é a API backend para a aplicação "Hero Factory", responsável por gerenc
     ```
 
     *   **Importante:** Os valores `DATABASE_URL` devem usar as credenciais e o nome do banco definidos no `docker-compose.yml`.
+    *   **CRÍTICO:** A variável `DATABASE_URL_TEST` DEVE apontar para um banco de dados diferente do principal para evitar perda de dados durante a execução dos testes!
 
 ## Setup do Banco de Dados (Docker)
 
@@ -69,39 +76,45 @@ O banco de dados MySQL roda em um container Docker gerenciado pelo `docker-compo
     docker-compose down -v
     ```
 
-## Instalação
+## Instalação e Configuração Inicial
 
 1.  Navegue até o diretório `backend/`:
     ```bash
     cd backend
     ```
-2.  Instale as dependências:
+2.  **Execute o script de setup:**
+    Este script irá instalar dependências, gerar o Prisma Client e aplicar as migrações iniciais do banco de dados.
     ```bash
-    pnpm install
+    chmod +x scripts/setup.sh # Garanta que o script seja executável (apenas na primeira vez)
+    ./scripts/setup.sh
     ```
+    *Opcionalmente, os passos manuais são: `pnpm install`, `pnpm exec prisma generate`, `pnpm exec prisma migrate dev`.*
 
-## Migrações do Banco de Dados
+## Seed do Banco de Dados
 
-O Prisma gerencia o schema e as migrações.
+O script de setup já inclui a população do banco de dados com dados iniciais. Se você quiser executar apenas o seed manualmente:
 
-1.  **Aplicar Migrações:** Ao iniciar o projeto ou após obter novas migrações, aplique-as:
-    ```bash
-    # Dentro do diretório backend/
-    npx prisma migrate dev
-    ```
-    Isso sincronizará seu banco de dados local com o schema definido em `prisma/schema.prisma`.
+```bash
+# Dentro do diretório backend/
+pnpm seed
+```
 
-2.  **Gerar Nova Migração:** Após modificar `prisma/schema.prisma`:
-    ```bash
-    # Dentro do diretório backend/
-    npx prisma migrate dev --name <nome-descritivo-da-migracao>
-    ```
+Isso irá popular o banco de dados com alguns heróis predefinidos, facilitando o teste da aplicação sem precisar criar dados manualmente.
 
-3.  **Gerar Prisma Client:** O cliente é geralmente gerado automaticamente após `migrate dev`, mas pode ser feito manualmente:
-    ```bash
-    # Dentro do diretório backend/
-    npx prisma generate
-    ```
+## Migrações do Banco de Dados (Avançado)
+
+O setup inicial cuida das migrações. Se você precisar gerar *novas* migrações após modificar o `prisma/schema.prisma`:
+
+```bash
+# Dentro do diretório backend/
+pnpm exec prisma migrate dev --name <nome-descritivo-da-migracao>
+```
+
+Para gerar o Prisma Client manualmente (geralmente não necessário):
+```bash
+# Dentro do diretório backend/
+pnpm exec prisma generate
+```
 
 ## Rodando a Aplicação
 
@@ -113,6 +126,7 @@ Com hot-reloading (usando `ts-node-dev`):
 # Dentro do diretório backend/
 pnpm dev
 ```
+
 A API estará disponível em `http://localhost:3001` (ou a porta no `.env`).
 
 ### Modo de Produção
@@ -127,14 +141,12 @@ A API estará disponível em `http://localhost:3001` (ou a porta no `.env`).
     # Dentro do diretório backend/
     pnpm start
     ```
-    Ou:
-    ```bash
-    node dist/server.js
-    ```
 
 ## Rodando os Testes
 
-Utilizamos Jest e Supertest.
+Utilizamos Jest e Supertest para os testes. Os testes interagem com um banco de dados real, mas usam EXCLUSIVAMENTE o banco de dados definido em `DATABASE_URL_TEST`, e NÃO o banco de dados principal.
+
+> ⚠️ **ATENÇÃO:** Certifique-se de que a variável `DATABASE_URL_TEST` está configurada no arquivo `.env` e aponta para um banco de dados DIFERENTE do banco de dados principal. Caso contrário, os testes irão limpar (apagar TODOS os dados) do banco de dados principal.
 
 1.  **Rodar todos os testes:**
     ```bash
@@ -153,7 +165,7 @@ Utilizamos Jest e Supertest.
     # Dentro do diretório backend/
     pnpm test --coverage
     ```
-    Os testes de integração requerem que o container do banco de dados esteja rodando.
+    *Os testes de integração requerem que o container do banco de dados esteja rodando.*
 
 ## Documentação da API (Swagger)
 

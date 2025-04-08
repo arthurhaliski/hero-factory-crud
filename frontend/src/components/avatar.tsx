@@ -46,11 +46,19 @@ export function Avatar({
           </text>
         </svg>
       )}
-      {src && <Image className="size-full" src={src} alt={alt} width={100} height={100} />}
+      {src && 
+        <Image 
+          className="size-full" 
+          src={src} 
+          alt={alt} 
+          width={100}
+          height={100}
+          unoptimized={true} 
+          objectFit="cover"
+        />}
     </span>
   )
 }
-
 export const AvatarButton = forwardRef(function AvatarButton(
   {
     src,
@@ -83,3 +91,4 @@ export const AvatarButton = forwardRef(function AvatarButton(
     </Headless.Button>
   )
 })
+

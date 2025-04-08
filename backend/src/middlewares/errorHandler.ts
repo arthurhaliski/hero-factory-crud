@@ -8,7 +8,7 @@ export const errorHandler = (
   req: Request,
   res: Response,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  next: NextFunction // `next` is required for Express error handlers, even if unused.
+  next: NextFunction // `next` é necessário para o tratamento de erros do Express, mesmo que não seja usado.
 ): void => {
   
   logger.error(
@@ -24,7 +24,6 @@ export const errorHandler = (
   );
 
   if (err instanceof ZodError) {
-    // Erro de validação Zod (geralmente tratado antes em validateRequest)
     res.status(400).json({
       status: 'error',
       message: 'Invalid input data',
@@ -34,7 +33,6 @@ export const errorHandler = (
   }
 
   if (err instanceof AppError && err.isOperational) {
-    // Erro operacional conhecido
     res.status(err.statusCode).json({
       status: 'error',
       message: err.message,
@@ -42,7 +40,6 @@ export const errorHandler = (
     return;
   }
 
-  // Erro inesperado/não operacional
   res.status(500).json({
     status: 'error',
     message: 'Internal Server Error',

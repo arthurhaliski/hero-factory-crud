@@ -5,7 +5,6 @@ import { ConflictError, NotFoundError } from '../../../src/errors/AppError';
 import prisma from '../../../src/config/prisma';
 import { CreateHeroDTO, UpdateHeroDTO } from '../../../src/types/hero';
 
-// Mock the prisma client
 jest.mock('../../../src/config/prisma', () => ({
   hero: {
     create: jest.fn(),
@@ -13,13 +12,15 @@ jest.mock('../../../src/config/prisma', () => ({
     findFirst: jest.fn(),
     delete: jest.fn(),
     findUnique: jest.fn(),
-    // Add other methods if needed for future tests
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
+  $transaction: jest.fn().mockImplementation(async (calls) => {
+    return Promise.all(calls.map((call: any) => call));
+  }),
 }));
 
-// Helper to create Prisma errors
 const createPrismaError = (code: string, target: string[] | null): PrismaClientKnownRequestError => {
-  // Prisma error constructor needs at least message, code, clientVersion
   return new PrismaClientKnownRequestError('prisma message', { code, clientVersion: 'mock', meta: { target } });
 };
 
@@ -28,45 +29,36 @@ describe('HeroRepository - Unit Tests', () => {
   let mockPrismaHero: any;
 
   beforeEach(() => {
-    // Reset mocks before each test
     jest.clearAllMocks();
-    // Use tsyringe container to resolve repository if it has dependencies injected
-    // For now, direct instantiation is fine as it seems to have no constructor deps
     heroRepository = new HeroRepository(); 
-    mockPrismaHero = prisma.hero; // Get the mocked functions
+    mockPrismaHero = prisma.hero; 
   });
 
   describe('create', () => {
     it('should throw ConflictError with correct message when Prisma throws P2002', async () => {
-      // Provide all required fields for CreateHeroDTO
       const createData: CreateHeroDTO = { 
         name: 'Test', 
         nickname: 'tester', 
         dateOfBirth: new Date('2000-01-01'),
-        universe: 'TEST_UNIVERSE', // Add missing field
-        mainPower: 'Testing',    // Add missing field
-        avatarUrl: 'http://example.com/avatar.jpg' // Add missing field
+        universe: 'TEST_UNIVERSE', 
+        mainPower: 'Testing',   
+        avatarUrl: 'http://example.com/avatar.jpg' 
       }; 
       const prismaError = createPrismaError('P2002', ['nickname']);
       
-      // Mock findFirst to return null (no existing hero)
       mockPrismaHero.findFirst.mockResolvedValueOnce(null);
       mockPrismaHero.create.mockRejectedValueOnce(prismaError);
 
-      // Combine assertions: check type and message in one go
       await expect(heroRepository.create(createData)).rejects.toThrow(
         new ConflictError('Hero creation failed: nickname already exists.')
       );
       
-      // Verify the call to prisma - uses the complete createData object
       const expectedPrismaPayload = {
-        data: createData // The data passed should now match expected type
+        data: createData 
       };
       expect(mockPrismaHero.create).toHaveBeenCalledWith(expectedPrismaPayload);
       expect(mockPrismaHero.create).toHaveBeenCalledTimes(1);
     });
-
-    // Add a test for successful creation if needed
   });
 
   describe('update', () => {
@@ -75,16 +67,13 @@ describe('HeroRepository - Unit Tests', () => {
       const updateData: UpdateHeroDTO = { nickname: 'new-tester' };
       const prismaError = createPrismaError('P2002', ['nickname']);
 
-      // Mock findFirst to return null (no existing hero with this nickname)
       mockPrismaHero.findFirst.mockResolvedValueOnce(null);
       mockPrismaHero.update.mockRejectedValueOnce(prismaError);
 
-      // Combine assertions: check type and message in one go
       await expect(heroRepository.update(heroId, updateData)).rejects.toThrow(
         new ConflictError('Hero update failed: nickname already exists.')
       );
 
-      // Verify the call to prisma
       expect(mockPrismaHero.update).toHaveBeenCalledWith({
         where: { id: heroId },
         data: { ...updateData, dateOfBirth: undefined }, 
@@ -97,7 +86,6 @@ describe('HeroRepository - Unit Tests', () => {
       const updateData: UpdateHeroDTO = { name: 'Updated Hero' };
       const prismaError = createPrismaError('P2025', null);
 
-      // Mock findFirst to return null (no existing hero with this nickname)
       mockPrismaHero.findFirst.mockResolvedValueOnce(null);
       mockPrismaHero.update.mockRejectedValueOnce(prismaError);
 
@@ -177,5 +165,86 @@ describe('HeroRepository - Unit Tests', () => {
     });
   });
 
-  // Add tests for other methods (findAll, findById) as needed
+  describe('findAll', () => {
+    const mockHeroes = [
+      { id: '1', name: 'Hero One', nickname: 'One', isActive: true, createdAt: new Date('2024-01-01') },
+      { id: '2', name: 'Hero Two', nickname: 'Two', isActive: false, createdAt: new Date('2024-01-02') }, 
+      { id: '3', name: 'Hero Three', nickname: 'Three', isActive: true, createdAt: new Date('2024-01-03') },
+      { id: '4', name: 'Another One', nickname: 'Four', isActive: true, createdAt: new Date('2024-01-04') },
+    ];
+
+    it('should return paginated heroes and total count without search term', async () => {
+      const page = 1;
+      const limit = 2;
+      const expectedSkip = 0;
+      const expectedHeroes = mockHeroes.slice(0, 2); 
+      const expectedTotal = mockHeroes.length;
+
+      mockPrismaHero.findMany.mockResolvedValueOnce(expectedHeroes);
+      mockPrismaHero.count.mockResolvedValueOnce(expectedTotal);
+
+      const result = await heroRepository.findAll(page, limit);
+
+      expect(result).toEqual({ heroes: expectedHeroes, total: expectedTotal });
+      expect(mockPrismaHero.findMany).toHaveBeenCalledWith({
+        where: {}, 
+        skip: expectedSkip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(mockPrismaHero.count).toHaveBeenCalledWith({ where: {} }); 
+    });
+
+    it('should return paginated heroes and total count with search term', async () => {
+      const page = 1;
+      const limit = 5;
+      const search = 'One';
+      const expectedSkip = 0;
+      const filteredHeroes = mockHeroes.filter(h => h.name.includes(search) || h.nickname.includes(search));
+      const expectedTotal = filteredHeroes.length;
+
+      mockPrismaHero.findMany.mockResolvedValueOnce(filteredHeroes);
+      mockPrismaHero.count.mockResolvedValueOnce(expectedTotal);
+
+      const result = await heroRepository.findAll(page, limit, search);
+
+      const expectedWhere = {
+        OR: [
+          { name: { contains: search } },
+          { nickname: { contains: search } },
+        ],
+      };
+
+      expect(result).toEqual({ heroes: filteredHeroes, total: expectedTotal });
+      expect(mockPrismaHero.findMany).toHaveBeenCalledWith({
+        where: expectedWhere,
+        skip: expectedSkip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(mockPrismaHero.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+
+    it('should handle pagination correctly (e.g., page 2)', async () => {
+      const page = 2;
+      const limit = 2;
+      const expectedSkip = 2;
+      const expectedHeroes = mockHeroes.slice(2, 4); // Next 2 heroes
+      const expectedTotal = mockHeroes.length;
+
+      mockPrismaHero.findMany.mockResolvedValueOnce(expectedHeroes);
+      mockPrismaHero.count.mockResolvedValueOnce(expectedTotal);
+
+      const result = await heroRepository.findAll(page, limit);
+
+      expect(result).toEqual({ heroes: expectedHeroes, total: expectedTotal });
+      expect(mockPrismaHero.findMany).toHaveBeenCalledWith({
+        where: {}, 
+        skip: expectedSkip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(mockPrismaHero.count).toHaveBeenCalledWith({ where: {} });
+    });
+  });
 }); 

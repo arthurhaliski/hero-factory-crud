@@ -17,16 +17,16 @@ app.use(pinoHttp({ logger }));
 app.use(cors());
 app.use(express.json());
 
-// Rate Limiter Configuration
+// Configuração do Rate Limiter
 const apiLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: 'Too many requests from this IP, please try again after 15 minutes' // Optional: Custom message
+	windowMs: 15 * 60 * 1000,
+	max: 100,
+	standardHeaders: true,
+	legacyHeaders: false,
+  message: 'Too many requests from this IP, please try again after 15 minutes'
 });
 
-// Apply the rate limiting middleware to API calls only
+// Aplicar o middleware de rate limiting apenas nas rotas da API
 app.use('/api', apiLimiter);
 
 // Rotas
@@ -44,7 +44,6 @@ app.get('/docs-json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Middleware de Erro Global (deve ser o último)
 app.use(errorHandler);
 
-export { app }; // Exportar a instância configurada do app 
+export { app }; 

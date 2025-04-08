@@ -32,7 +32,7 @@ export class HeroRepository {
 
   async findAll(page: number, limit: number, search?: string): Promise<{ heroes: Hero[]; total: number }> {
     const skip = (page - 1) * limit;
-    const whereClause: Prisma.HeroWhereInput = { isActive: true };
+    const whereClause: Prisma.HeroWhereInput = {};
 
     if (search) {
       whereClause.OR = [
@@ -41,6 +41,8 @@ export class HeroRepository {
       ];
     }
 
+    const countWhereClause = { ...whereClause };
+
     const [heroes, total] = await prisma.$transaction([
       prisma.hero.findMany({
         where: whereClause,
@@ -48,7 +50,7 @@ export class HeroRepository {
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.hero.count({ where: whereClause }),
+      prisma.hero.count({ where: countWhereClause }),
     ]);
 
     return { heroes, total };

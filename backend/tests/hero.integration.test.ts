@@ -1,22 +1,15 @@
-import request from 'supertest'; // supertest para fazer requisições HTTP
-import { app } from '../src/app'; // Nossa instância da aplicação Express
-// import { PrismaClient } from '@prisma/client'; // Para verificar o banco de dados
-import prisma from '../src/config/prisma'; // <- Importar instância configurada
+import request from 'supertest'; 
+import { app } from '../src/app'; 
+import prisma from '../src/config/prisma'; 
 import { Hero, HeroResponse } from '../src/types/hero';
 
-// Não precisa mais instanciar aqui
-// const prisma = new PrismaClient();
 
-// Variables to hold hero data created in the main beforeEach
 let existingHero: Hero;
 let secondHero: Hero;
-const existingHeroNickname = 'the-flash'; // Constant nickname for conflict tests
+const existingHeroNickname = 'the-flash'; 
 
-// Main beforeEach to set up a clean, consistent state for EVERY test
 beforeEach(async () => {
-  // console.log('--- beforeEach: Start ---');
   await prisma.hero.deleteMany({}); 
-  // console.log('--- beforeEach: Deleted all heroes ---');
   
   try {
     existingHero = await prisma.hero.create({
@@ -29,29 +22,23 @@ beforeEach(async () => {
         avatarUrl: 'http://example.com/flash.jpg'
       }
     });
-    // console.log(`--- beforeEach: Created existingHero ID: ${existingHero.id} ---`);
 
     secondHero = await prisma.hero.create({
       data: {
         name: 'Wally West',
-        nickname: 'kid-flash', // Unique nickname initially
+        nickname: 'kid-flash', 
         dateOfBirth: new Date('1995-12-10'),
         universe: 'DC',
         mainPower: 'Speed Force Connection',
         avatarUrl: 'http://example.com/kidflash.jpg'
       }
     });
-    // console.log(`--- beforeEach: Created secondHero ID: ${secondHero.id} ---`);
   } catch (error) {
-    // console.error('--- beforeEach: ERROR during hero creation ---', error);
-    // Re-throw or handle as appropriate for test setup failure
     throw error;
   }
-  // console.log('--- beforeEach: End ---');
 });
 
 afterAll(async () => {
-  // Limpar o banco uma última vez após todos os testes
   await prisma.hero.deleteMany({});
   await prisma.$disconnect();
 });
@@ -70,7 +57,6 @@ describe('Hero API Integration Tests', () => {
       };
       const response = await request(app).post('/api/heroes').send(heroData).expect(201);
 
-      // Expect hero object directly in the body
       expect(response.body).toHaveProperty('id');
       expect(response.body.name).toBe(heroData.name);
       expect(response.body.nickname).toBe(heroData.nickname);
@@ -82,7 +68,6 @@ describe('Hero API Integration Tests', () => {
       expect(response.body).toHaveProperty('created_at');
       expect(response.body).toHaveProperty('updated_at');
 
-      // Verify in DB
       const dbHero = await prisma.hero.findUnique({ where: { id: response.body.id } });
       expect(dbHero).not.toBeNull();
       expect(dbHero?.name).toBe(heroData.name);
@@ -102,25 +87,21 @@ describe('Hero API Integration Tests', () => {
       const response = await request(app)
         .post('/api/heroes')
         .send(invalidHeroData)
-        .expect(400); // Espera status 400 Bad Request devido à validação Zod
+        .expect(400); 
 
-      // Verificar a estrutura do erro (depende de como o ErrorHandler global formata)
       expect(response.body).toHaveProperty('status', 'error');
-      expect(response.body).toHaveProperty('message'); // Mensagem geral
-      expect(response.body).toHaveProperty('errors'); // Array de erros Zod
+      expect(response.body).toHaveProperty('message'); 
+      expect(response.body).toHaveProperty('errors'); 
       expect(Array.isArray(response.body.errors)).toBe(true);
       expect(response.body.errors.length).toBeGreaterThan(0);
-      // Verificar se os erros específicos para name e avatarUrl estão presentes
       expect(response.body.errors.some((err: any) => err.path.includes('name'))).toBe(true);
       expect(response.body.errors.some((err: any) => err.path.includes('avatarUrl'))).toBe(true);
     });
 
     it('should return 409 Conflict if nickname already exists', async () => {
-      // Use findFirst to query by a non-primary @unique field
       const conflictingHeroExists = await prisma.hero.findFirst({ 
         where: { nickname: existingHeroNickname } 
       });
-      // console.log(`>>> DEBUG POST 409: Conflicting hero found in DB before POST?`, conflictingHeroExists ? `Yes, ID: ${conflictingHeroExists.id}` : 'No');
       if (!conflictingHeroExists) {
         throw new Error('Test setup failed: conflicting hero does not exist before test!');
       }
@@ -128,31 +109,23 @@ describe('Hero API Integration Tests', () => {
       const newHeroData = { name: 'Jay Garrick', nickname: existingHeroNickname, dateOfBirth: '1940-01-25', universe: 'DC', mainPower: 'Speed Aura', avatarUrl: 'http://example.com/jay.jpg' };
       const response = await request(app).post('/api/heroes').send(newHeroData);
       
-      // if(response.status !== 409) {
-      //   console.log('>>> DEBUG POST 409: Received non-409 status. Body:', response.body);
-      // }
-      
       expect(response.status).toBe(409);
       expect(response.body.status).toBe('error');
       expect(response.body.message).toEqual('Hero creation failed: nickname already exists.');
     });
-
-    // Add more validation tests here (e.g., invalid types, etc.)
-
   });
 
   describe('GET /api/heroes', () => {
     it('should return a list of active heroes (created in main beforeEach)', async () => {
       const response = await request(app).get('/api/heroes').expect(200);
       expect(response.body.heroes).toBeInstanceOf(Array);
-      expect(response.body.heroes.length).toBe(2); // Check for the 2 heroes from main beforeEach
+      expect(response.body.heroes.length).toBe(2); 
       expect(response.body.heroes.some((h: HeroResponse) => h.id === existingHero.id)).toBe(true);
       expect(response.body.heroes.some((h: HeroResponse) => h.id === secondHero.id)).toBe(true);
       expect(response.body.heroes.every((h: HeroResponse) => h.is_active === true)).toBe(true); 
     });
 
     it('should return a specific page of heroes', async () => {
-       // Use the 2 existing + create one more for pagination test
        await prisma.hero.create({data: {name: 'Third', nickname: 'pagi', dateOfBirth: new Date(), universe: 'U', mainPower: 'P', avatarUrl: 'a.jpg'}});
        const response = await request(app).get('/api/heroes?page=2&limit=2').expect(200);
        expect(response.body.heroes).toBeInstanceOf(Array); 
@@ -191,7 +164,6 @@ describe('Hero API Integration Tests', () => {
   describe('GET /api/heroes/:id', () => {
     it('should return existingHero directly in body if ID exists and hero is active', async () => {
       if (!existingHero) throw new Error('Test setup failed: existingHero is undefined');
-      // console.log(`>>> Test GET /:id active: Using existingHero.id: ${existingHero.id}`);
       const response = await request(app).get(`/api/heroes/${existingHero.id}`).expect(200);
       expect(response.body.id).toBe(existingHero.id);
       expect(response.body.nickname).toBe(existingHero.nickname);
@@ -200,12 +172,9 @@ describe('Hero API Integration Tests', () => {
 
     it('should return 404 if hero ID exists but hero is inactive', async () => {
       if (!secondHero) throw new Error('Test setup failed: secondHero is undefined');
-      // console.log(`>>> Test GET /:id inactive: Updating secondHero.id: ${secondHero.id}`);
       try {
         await prisma.hero.update({ where: { id: secondHero.id }, data: { isActive: false } });
-        // console.log(`>>> Test GET /:id inactive: Updated secondHero.id: ${secondHero.id} to inactive`);
       } catch (error) {
-        // console.error(`>>> Test GET /:id inactive: ERROR updating secondHero ${secondHero.id}`, error);
         throw error;
       }
       await request(app).get(`/api/heroes/${secondHero.id}`).expect(404);
@@ -229,12 +198,10 @@ describe('Hero API Integration Tests', () => {
       const updateData = { nickname: 'Updated Flash', mainPower: 'Enhanced Speed' };
       const response = await request(app).put(`/api/heroes/${existingHero.id}`).send(updateData).expect(200);
       expect(response.body.nickname).toBe(updateData.nickname);
-      // Assert against the correct property name and expected value
       expect(response.body.main_power).toBe(updateData.mainPower); 
       expect(response.body.id).toBe(existingHero.id);
       const dbHero = await prisma.hero.findUnique({ where: { id: existingHero.id } });
       expect(dbHero?.nickname).toBe(updateData.nickname);
-      // Verify mainPower in DB as well
       expect(dbHero?.mainPower).toBe(updateData.mainPower);
     });
 
@@ -266,12 +233,8 @@ describe('Hero API Integration Tests', () => {
 
     it('should return 409 Conflict if updating to an existing nickname', async () => {
       if (!existingHero || !secondHero) throw new Error('Test setup failed: heroes are undefined');
-      const updateData = { nickname: existingHeroNickname }; // Try to update secondHero with existingHero's nickname
+      const updateData = { nickname: existingHeroNickname }; 
       const response = await request(app).put(`/api/heroes/${secondHero.id}`).send(updateData);
-      
-      // if(response.status !== 409) {
-      //   console.log('>>> DEBUG PUT 409: Received non-409 status. Body:', response.body);
-      // }
 
       expect(response.status).toBe(409);
       expect(response.body.status).toBe('error');
@@ -282,7 +245,6 @@ describe('Hero API Integration Tests', () => {
   describe('DELETE /api/heroes/:id', () => {
     it('should deactivate secondHero and return the deactivated hero', async () => {
       if (!secondHero) throw new Error('Test setup failed: secondHero is undefined');
-      // console.log(`>>> Test DELETE /:id: Deleting secondHero.id: ${secondHero.id}`);
       const response = await request(app).delete(`/api/heroes/${secondHero.id}`).expect(200);
       expect(response.body.id).toBe(secondHero.id);
       expect(response.body.is_active).toBe(false);
@@ -308,13 +270,11 @@ describe('Hero API Integration Tests', () => {
 
   describe('PATCH /api/heroes/:id/activate', () => {
     beforeEach(async () => {
-      // Ensure secondHero is available before updating
       if (!secondHero) throw new Error('Test setup failed: secondHero is undefined in PATCH beforeEach');
       await prisma.hero.update({ where: { id: secondHero.id }, data: { isActive: false } });
     });
 
     it('should activate secondHero (inactive) and return the updated hero directly in body', async () => {
-      // Ensure secondHero is available
       if (!secondHero) throw new Error('Test setup failed: secondHero is undefined');
       const response = await request(app).patch(`/api/heroes/${secondHero.id}/activate`).expect(200);
       expect(response.body.id).toBe(secondHero.id);
@@ -322,7 +282,6 @@ describe('Hero API Integration Tests', () => {
     });
   
     it('should return 400 if trying to activate existingHero (already active)', async () => {
-      // Ensure existingHero is available
       if (!existingHero) throw new Error('Test setup failed: existingHero is undefined');
       const response = await request(app).patch(`/api/heroes/${existingHero.id}/activate`);
       expect(response.status).toBe(400);
@@ -336,5 +295,4 @@ describe('Hero API Integration Tests', () => {
        expect(response.body.message).toEqual('Hero not found'); 
      });
   });
-
 }); 
