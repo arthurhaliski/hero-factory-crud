@@ -5,11 +5,11 @@ echo "📦 Instalando dependências..."
 pnpm install
 
 echo "🔍 Gerando Prisma Client..."
-# Use pnpm exec to run the locally installed Prisma CLI
-pnpm exec prisma generate
+# Use npx to run Prisma CLI
+npx prisma generate
 
 echo "⏳ Aplicando migrações do banco de dados..."
-pnpm exec prisma migrate dev
+npx prisma migrate dev
 
 echo "🛡️ Criando banco de dados de teste..."
 # Extrai host e credenciais a partir do DATABASE_URL

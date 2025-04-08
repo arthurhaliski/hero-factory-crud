@@ -45,6 +45,17 @@ Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o 
 - **Notificações:** Sonner
 - **Linting/Formatação:** ESLint, Prettier
 
+## Internacionalização (i18n)
+
+A interface da aplicação está traduzida para português brasileiro, incluindo:
+
+- Textos dos botões e campos
+- Mensagens de erro e sucesso
+- Componentes de navegação e paginação
+- Confirmações e avisos
+
+Não foi necessário usar bibliotecas de i18n, pois a aplicação foi desenvolvida com foco exclusivo no português.
+
 ## Estrutura do Projeto (Visão Geral)
 
 - **`src/app/`**: Contém as rotas principais e layout (App Router).
@@ -54,3 +65,22 @@ Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o 
 - **`src/styles/`**: Estilos globais (se houver, além do Tailwind).
 - **`src/types/`**: Definições de tipos TypeScript, especialmente para respostas da API.
 - **`public/`**: Assets estáticos.
+
+## Otimizações de Performance
+
+- **Debouncing:** Implementado na busca de heróis para reduzir chamadas à API durante a digitação do usuário
+- **Lazy Loading:** Componentes pesados são carregados dinamicamente através de lazy loading do Next.js
+- **Componentes Memorizados:** Uso de callbacks e gerenciamento de estado otimizado para evitar re-renderizações desnecessárias
+- **Skeleton Loading:** Implementado em componentes como `hero-card-skeleton` para melhorar a percepção de velocidade enquanto os dados são carregados
+- **Paginação:** Implementação de paginação no lado do cliente para lidar eficientemente com grandes conjuntos de dados
+
+## Princípios de Design UI/UX
+
+A aplicação segue princípios de design minimalista para fornecer uma experiência de usuário limpa e intuitiva:
+
+- **Espaçamento consistente:** Espaço em branco balanceado em todos os componentes
+- **Hierarquia visual:** Ênfase clara em informações importantes através de tipografia e dimensionamento
+- **Componentes responsivos:** Adapta-se elegantemente a diferentes tamanhos de dispositivos
+- **Mecanismos de feedback:** Estados de carregamento, transições e indicadores de resposta
+- **Acessibilidade:** HTML semântico e atributos ARIA apropriados
+- **Suporte ao modo escuro:** Temas consistentes com esquemas de cores para preferências claras e escuras

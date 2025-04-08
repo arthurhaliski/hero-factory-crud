@@ -1,161 +1,73 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import apiClient from '@/lib/apiClient';
-import { HeroListResponse, HeroResponse } from '@/types/hero';
+import { useHeroes } from '@/hooks/useHeroes';
+import { useHeroActions } from '@/hooks/useHeroActions';
 import { Button } from '@/components/button';
 import { Heading } from '@/components/heading';
 import { Input, InputGroup } from '@/components/input';
 import { Pagination } from '@/components/custom-pagination';
 import { HeroCard } from '@/components/hero-card';
-import { ConfirmationModal } from '@/components/confirmation-modal';
-import { ViewHeroModal } from '@/components/view-hero-modal';
-import { CreateHeroModal } from '@/components/create-hero-modal';
-import { EditHeroModal } from '@/components/edit-hero-modal';
-import { toast } from "sonner";
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { HeroCardSkeleton } from '@/components/hero-card-skeleton';
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { memo, lazy, Suspense } from 'react';
+
+// Lazy loading de componentes pesados
+const ConfirmationModal = lazy(() => import('@/components/confirmation-modal').then(mod => ({ default: mod.ConfirmationModal })));
+const ViewHeroModal = lazy(() => import('@/components/view-hero-modal').then(mod => ({ default: mod.ViewHeroModal })));
+const CreateHeroModal = lazy(() => import('@/components/create-hero-modal').then(mod => ({ default: mod.CreateHeroModal })));
+const EditHeroModal = lazy(() => import('@/components/edit-hero-modal').then(mod => ({ default: mod.EditHeroModal })));
+
+// Fallback para os modais durante o carregamento
+const ModalFallback = () => <div className="fixed inset-0 bg-black/30 flex items-center justify-center">Carregando...</div>;
+
+// Componentes de estado de tela memoizados para evitar re-renders
+const EmptySearch = memo(({ searchTerm, onCreateClick }: { searchTerm: string, onCreateClick: () => void }) => (
+  <div className="text-center py-10 text-zinc-500">
+    <p>Nenhum herói encontrado para sua busca.</p>
+  </div>
+));
+EmptySearch.displayName = 'EmptySearch';
+
+const EmptyHeroes = memo(({ onCreateClick }: { onCreateClick: () => void }) => (
+  <div className="text-center py-10 text-zinc-500">
+    <p>Nenhum herói cadastrado ainda.</p>
+    <Button onClick={onCreateClick} className="mt-4">Criar primeiro herói</Button>
+  </div>
+));
+EmptyHeroes.displayName = 'EmptyHeroes';
 
 export default function HomePage() {
-  const [heroesData, setHeroesData] = useState<HeroListResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const { 
+    heroesData, 
+    isLoading, 
+    currentPage, 
+    searchTerm, 
+    handleSearch, 
+    handlePageChange,
+    refetch
+  } = useHeroes();
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [selectedHero, setSelectedHero] = useState<HeroResponse | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'delete' | 'toggle' | null>(null);
-  const [confirmHeroId, setConfirmHeroId] = useState<string | null>(null);
-  const [confirmHeroIsActive, setConfirmHeroIsActive] = useState<boolean | null>(null);
-  const [isConfirmingAction, setIsConfirmingAction] = useState(false);
-
-  const fetchHeroes = useCallback(async (page: number, search: string) => {
-    setIsLoading(true);
-    try {
-      let endpoint = `/heroes?page=${page}&limit=10`;
-      if (search.trim()) {
-        endpoint += `&search=${encodeURIComponent(search.trim())}`;
-      }
-      const data = await apiClient<HeroListResponse>(endpoint); 
-      setHeroesData(data);
-      setCurrentPage(page);
-    } catch (err: any) {
-      console.error('Failed to fetch heroes:', err);
-      toast.error(err.message || 'Erro ao buscar heróis.');
-      setHeroesData(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    setIsLoading(true);
+  const {
+    isCreateModalOpen,
+    isEditModalOpen,
+    isViewModalOpen,
+    isConfirmModalOpen,
+    selectedHero,
+    confirmAction,
+    confirmHeroId,
+    confirmHeroIsActive,
+    isConfirmingAction,
     
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-    
-    const timeout = setTimeout(() => {
-      fetchHeroes(1, value);
-    }, 500);
-    
-    setSearchTimeout(timeout);
-  };
-
-  const handlePageChange = (page: number) => {
-    fetchHeroes(page, searchTerm);
-  };
-
-  const openCreateModal = () => setIsCreateModalOpen(true);
-  const closeCreateModal = (refresh?: boolean) => {
-    setIsCreateModalOpen(false);
-    if (refresh) fetchHeroes(currentPage, searchTerm);
-  };
-  
-  const openEditModal = (hero: HeroResponse) => {
-    if (!hero.is_active) return;
-    setSelectedHero(hero);
-    setIsEditModalOpen(true);
-  };
-  const closeEditModal = (refresh?: boolean) => {
-    setIsEditModalOpen(false);
-    setSelectedHero(null);
-    if (refresh) fetchHeroes(currentPage, searchTerm);
-  };
-  
-  const openViewModal = (hero: HeroResponse) => {
-    setSelectedHero(hero);
-    setIsViewModalOpen(true);
-  };
-  const closeViewModal = () => {
-    setIsViewModalOpen(false);
-    setSelectedHero(null);
-  };
-  
-  const openConfirmModal = (action: 'delete' | 'toggle', id: string, isActive?: boolean) => {
-    setConfirmAction(action);
-    setConfirmHeroId(id);
-    setConfirmHeroIsActive(isActive ?? null);
-    setIsConfirmModalOpen(true);
-  };
-  const closeConfirmModal = () => {
-    setIsConfirmModalOpen(false);
-    setConfirmAction(null);
-    setConfirmHeroId(null);
-    setConfirmHeroIsActive(null);
-  };
-
-  const handleConfirmedAction = async () => {
-    if (!confirmAction || !confirmHeroId) return;
-    
-    setIsConfirmingAction(true);
-    
-    let endpoint = '';
-    let method: 'PUT' | 'DELETE' | 'PATCH' = 'PUT';
-    let successMsg = '';
-    let errorMsg = '';
-
-    if (confirmAction === 'delete') {
-      endpoint = `/heroes/${confirmHeroId}`;
-      method = 'DELETE';
-      successMsg = 'Herói desativado com sucesso!';
-      errorMsg = 'Erro ao desativar o herói.';
-    } else if (confirmAction === 'toggle') {
-      if (confirmHeroIsActive) {
-        endpoint = `/heroes/${confirmHeroId}`;
-        method = 'DELETE';
-        successMsg = 'Herói desativado com sucesso!';
-        errorMsg = 'Erro ao desativar o herói.';
-      } else {
-        endpoint = `/heroes/${confirmHeroId}/activate`;
-        method = 'PATCH';
-        successMsg = 'Herói ativado com sucesso!';
-        errorMsg = 'Erro ao ativar o herói.';
-      }
-    }
-    
-    closeConfirmModal();
-
-    try {
-       await apiClient(endpoint, { method });
-       toast.success(successMsg);
-       fetchHeroes(currentPage, searchTerm);
-    } catch (err: any) {
-       console.error(`Failed to ${confirmAction} hero:`, err);
-       toast.error(err.message || errorMsg);
-    } finally {
-        setIsConfirmingAction(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHeroes(currentPage, searchTerm);
-  }, [fetchHeroes, currentPage, searchTerm]);
+    openCreateModal,
+    closeCreateModal,
+    openEditModal,
+    closeEditModal,
+    openViewModal,
+    closeViewModal,
+    openConfirmModal,
+    closeConfirmModal,
+    handleConfirmedAction
+  } = useHeroActions(refetch);
 
   return (
     (<div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -200,15 +112,10 @@ export default function HomePage() {
         </div>
       )}
       {!isLoading && searchTerm && heroesData && heroesData.heroes.length === 0 && (
-         <div className="text-center py-10 text-zinc-500">
-           <p>Nenhum herói encontrado para sua busca.</p>
-        </div>
+        <EmptySearch searchTerm={searchTerm} onCreateClick={openCreateModal} />
       )}
       {!isLoading && !searchTerm && (!heroesData || heroesData.heroes.length === 0) && (
-         <div className="text-center py-10 text-zinc-500">
-           <p>Nenhum herói cadastrado ainda.</p>
-           <Button onClick={openCreateModal} className="mt-4">Criar primeiro herói</Button>
-        </div>
+        <EmptyHeroes onCreateClick={openCreateModal} />
       )}
       {!isLoading && heroesData && heroesData.heroes.length > 0 && (
         (<div className="mt-8 pt-4 pb-4 border-t border-zinc-200 dark:border-zinc-700/50 flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -232,50 +139,54 @@ export default function HomePage() {
           )}
         </div>)
       )}
-      {isConfirmModalOpen && (
-        <ConfirmationModal 
-          isOpen={isConfirmModalOpen}
-          onClose={closeConfirmModal}
-          onConfirm={handleConfirmedAction}
-          title={
-            confirmAction === 'delete' ? 'Excluir Herói' : 
-            (confirmHeroIsActive ? 'Desativar Herói' : 'Ativar Herói')
-          }
-          message={
-            confirmAction === 'delete' ? `Tem certeza que deseja excluir (desativar) o herói?` : 
-            (confirmHeroIsActive ? `Tem certeza que deseja desativar o herói?` : `Tem certeza que deseja ativar o herói?`)
-          }
-          confirmButtonText={
-            confirmAction === 'delete' ? 'Excluir' : 
-            (confirmHeroIsActive ? 'Desativar' : 'Ativar')
-          }
-          confirmButtonColor={
-            confirmAction === 'delete' ? 'red' : 
-            (confirmHeroIsActive ? 'red' : 'green')
-          }
-          isConfirming={isConfirmingAction}
-        />
-      )}
-      {isViewModalOpen && selectedHero && (
-        <ViewHeroModal 
-          isOpen={isViewModalOpen} 
-          onClose={closeViewModal} 
-          hero={selectedHero} 
-        />
-      )}
-      {isCreateModalOpen && (
-         <CreateHeroModal 
-           isOpen={isCreateModalOpen} 
-           onClose={closeCreateModal} 
-         />
-      )}
-      {isEditModalOpen && selectedHero && (
-        <EditHeroModal 
-          isOpen={isEditModalOpen} 
-          onClose={closeEditModal} 
-          hero={selectedHero} 
-        />
-      )}
+      
+      {/* Modais carregados com Suspense e lazy loading */}
+      <Suspense fallback={<ModalFallback />}>
+        {isCreateModalOpen && (
+          <CreateHeroModal 
+            isOpen={isCreateModalOpen}
+            onClose={closeCreateModal}
+          />
+        )}
+        {isEditModalOpen && selectedHero && (
+          <EditHeroModal 
+            isOpen={isEditModalOpen}
+            onClose={closeEditModal}
+            hero={selectedHero}
+          />
+        )}
+        {isViewModalOpen && selectedHero && (
+          <ViewHeroModal 
+            isOpen={isViewModalOpen}
+            onClose={closeViewModal}
+            hero={selectedHero}
+          />
+        )}
+        {isConfirmModalOpen && (
+          <ConfirmationModal 
+            isOpen={isConfirmModalOpen}
+            onClose={closeConfirmModal}
+            onConfirm={handleConfirmedAction}
+            title={
+              confirmAction === 'delete' ? 'Excluir Herói' : 
+              (confirmHeroIsActive ? 'Desativar Herói' : 'Ativar Herói')
+            }
+            message={
+              confirmAction === 'delete' ? `Tem certeza que deseja excluir (desativar) o herói?` : 
+              (confirmHeroIsActive ? `Tem certeza que deseja desativar o herói?` : `Tem certeza que deseja ativar o herói?`)
+            }
+            confirmButtonText={
+              confirmAction === 'delete' ? 'Excluir' : 
+              (confirmHeroIsActive ? 'Desativar' : 'Ativar')
+            }
+            confirmButtonColor={
+              confirmAction === 'delete' ? 'red' : 
+              (confirmHeroIsActive ? 'red' : 'green')
+            }
+            isConfirming={isConfirmingAction}
+          />
+        )}
+      </Suspense>
     </div>)
   );
 }

@@ -28,14 +28,13 @@ Este repositório contém uma aplicação CRUD full-stack para gerenciar heróis
     Os valores padrão nos arquivos de exemplo devem funcionar com a configuração Docker fornecida.
 
 3.  **Execute o script de setup completo do projeto:**
-    Isso iniciará o container do banco de dados, instalará as dependências para backend e frontend, gerará o Prisma client, aplicará as migrações do banco de dados e populará o banco com dados iniciais de exemplo.
+    Isso iniciará o container do banco de dados, instalará as dependências para backend e frontend, gerará o Prisma client, aplicará as migrações do banco de dados e populará o banco com 15 heróis de exemplo para demonstrar a paginação. O script aguardará até que o MySQL esteja pronto para aceitar conexões e, ao final, perguntará se você deseja iniciar a aplicação imediatamente.
     ```bash
     chmod +x scripts/setup.sh # Torna o script executável (apenas na primeira vez)
     ./scripts/setup.sh
     ```
 
-4.  **Execute os servidores de desenvolvimento:**
-    Isso iniciará os servidores de desenvolvimento do backend e do frontend simultaneamente.
+4.  **Se você optar por não iniciar a aplicação no final do setup, execute os servidores de desenvolvimento manualmente:**
     ```bash
     chmod +x scripts/dev.sh # Torna o script executável (apenas na primeira vez)
     ./scripts/dev.sh

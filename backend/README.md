@@ -99,7 +99,7 @@ O script de setup já inclui a população do banco de dados com dados iniciais.
 pnpm seed
 ```
 
-Isso irá popular o banco de dados com alguns heróis predefinidos, facilitando o teste da aplicação sem precisar criar dados manualmente.
+Isso irá popular o banco de dados com 15 heróis predefinidos (7 da DC Comics e 8 da Marvel), facilitando o teste da aplicação sem precisar criar dados manualmente. Esse conjunto de dados foi especialmente projetado para demonstrar a funcionalidade de paginação no frontend.
 
 ## Migrações do Banco de Dados (Avançado)
 
@@ -146,7 +146,16 @@ A API estará disponível em `http://localhost:3001` (ou a porta no `.env`).
 
 Utilizamos Jest e Supertest para os testes. Os testes interagem com um banco de dados real, mas usam EXCLUSIVAMENTE o banco de dados definido em `DATABASE_URL_TEST`, e NÃO o banco de dados principal.
 
-> ⚠️ **ATENÇÃO:** Certifique-se de que a variável `DATABASE_URL_TEST` está configurada no arquivo `.env` e aponta para um banco de dados DIFERENTE do banco de dados principal. Caso contrário, os testes irão limpar (apagar TODOS os dados) do banco de dados principal.
+> ⚠️ **ATENÇÃO:** Certifique-se de que a variável `DATABASE_URL_TEST` está configurada no arquivo `.env` e aponta para um banco de dados DIFERENTE do banco de dados principal. Caso contrário, os testes não serão executados (o script de setup configurou isso automaticamente para você).
+
+O arquivo `tests/setup.ts` foi configurado para:
+- Verificar se `DATABASE_URL_TEST` está definido
+- Criar o banco de dados de teste se não existir
+- Aplicar as migrações do Prisma automaticamente
+- Limpar os dados entre os testes
+- Interromper a execução dos testes se `DATABASE_URL_TEST` não estiver definido
+
+Para executar os testes:
 
 1.  **Rodar todos os testes:**
     ```bash
@@ -238,10 +247,14 @@ A API adota uma arquitetura em camadas clássica:
 
 ## Tratamento de Erros
 
--   **Validação (Zod):** Middleware `validateRequest` retorna 400 com detalhes.
--   **Erros Operacionais (`AppError`):** Erros de negócio conhecidos (404, 400, 409) lançados explicitamente.
--   **Erros Inesperados:** Capturados pelo `catchAsync` e `errorHandler`.
--   **Middleware Global (`errorHandler`):** Loga todos os erros e retorna respostas JSON padronizadas (500 para erros inesperados, status específico para `AppError`).
+A API implementa um mecanismo centralizado de tratamento de erros usando middleware do Express. Classes de erro customizadas estendem uma classe base `AppError`, permitindo respostas de erro consistentes.
+
+Características notáveis do tratamento de erros:
+- Classes de erro customizadas para cenários específicos (NotFoundError, ConflictError)
+- Tradução de erros do Prisma (ex.: P2025 para NotFoundError nos repositórios)
+- Erros de validação do Zod são analisados e retornados com mensagens descritivas
+- Tratamento de erros async/await usando o utilitário catchAsync
+- Logging detalhado de erros com contexto apropriado
 
 ## Logging
 
