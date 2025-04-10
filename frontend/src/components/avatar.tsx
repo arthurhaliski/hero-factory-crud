@@ -48,13 +48,13 @@ export function Avatar({
       )}
       {src && 
         <Image 
-          className="size-full" 
+          className="size-full object-cover" 
           src={src} 
           alt={alt} 
           width={100}
           height={100}
           unoptimized={true} 
-          objectFit="cover"
+          style={{ display: 'block', overflow: 'hidden' }}
         />}
     </span>
   )
